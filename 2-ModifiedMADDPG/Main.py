@@ -140,6 +140,7 @@ power_total = np.zeros([n_platoon, n_episode_test, n_step_per_episode], dtype=np
 
 AoI_total = np.zeros([n_platoon, n_episode], dtype=np.float16)
 record_reward_ = np.zeros([n_platoon, n_episode], dtype=np.float16)
+record_reward_global_ = np.zeros([n_episode], dtype=np.float16)
 # ------------------------------------------------------------------------------------------------------------------ #
 if IS_TRAIN:
     '''
@@ -152,6 +153,7 @@ if IS_TRAIN:
         done = False
         print("-------------------------------------------------------------------------------------------------------")
         record_reward = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
+        record_reward_global = np.zeros([n_step_per_episode], dtype=np.float16)
         record_AoI = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
 
         env.V2V_demand = env.V2V_demand_size * np.ones(n_platoon, dtype=np.float16)
@@ -191,6 +193,7 @@ if IS_TRAIN:
             for i in range(n_platoon):
                 record_reward[i, i_step] = train_reward[i]
                 record_AoI[i, i_step] = env.AoI[i]
+                record_reward_global[i_step] = global_reward
 
             env.renew_channels_fastfading()
             env.Compute_Interference(action_temp)
@@ -229,6 +232,7 @@ if IS_TRAIN:
                 power_total[i, i_episode % 100, i_step] = action_temp[i, 2]
 
         record_reward_[:, i_episode] = np.mean(record_reward, axis=1)
+        record_reward_global_[i_episode] = np.mean(record_reward_global)
         AoI_total[:, i_episode] = np.mean(record_AoI, axis=1)
 
         if i_episode % 50 == 0:
@@ -240,6 +244,7 @@ if IS_TRAIN:
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
     reward_path = os.path.join(current_dir, "model/" + label + '/reward.mat')
+    reward_path_global = os.path.join(current_dir, "model/" + label + '/reward_global.mat')
     AoI_path = os.path.join(current_dir, "model/" + label + '/AoI.mat')
     AoI_evolution_path = os.path.join(current_dir, "model/" + label + '/AoI_evolution.mat')
     Demand_path = os.path.join(current_dir, "model/" + label + '/demand.mat')
@@ -248,6 +253,7 @@ if IS_TRAIN:
     power_path = os.path.join(current_dir, "model/" + label + '/power.mat')
 
     scipy.io.savemat(reward_path, {'reward': record_reward_})
+    scipy.io.savemat(reward_path_global, {'reward_global': record_reward_global_})
     scipy.io.savemat(AoI_path, {'AoI': AoI_total})
     scipy.io.savemat(AoI_evolution_path, {'AoI_evolution': AoI_evolution})
     scipy.io.savemat(Demand_path, {'demand': Demand_total})
