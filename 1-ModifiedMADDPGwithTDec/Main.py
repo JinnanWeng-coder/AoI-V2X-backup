@@ -9,6 +9,11 @@ from Classes.buffer import ReplayBuffer
 import random
 import torch as T
 
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except ImportError:
+    SummaryWriter = None
+
 
 SEED = 2   # change per run: 1, 2, 3, 4, 5 ...
 random.seed(SEED)
@@ -55,6 +60,17 @@ height = 1298 / 2
 IS_TRAIN = 1
 IS_TEST = 1 - IS_TRAIN
 label = 'marl_model'
+
+current_dir = os.path.dirname(os.path.realpath(__file__))
+repo_dir = os.path.dirname(current_dir)
+algo_name = os.path.basename(current_dir)
+if SummaryWriter is not None:
+    tensorboard_log_dir = os.path.join(current_dir, "runs", "TensorBoardLog")
+    writer = SummaryWriter(log_dir=tensorboard_log_dir, purge_step=0)
+    print("TensorBoard log dir:", tensorboard_log_dir)
+else:
+    writer = None
+    print("TensorBoard is disabled. Install it with: pip install tensorboard")
 # ------------------------------------------------------------------------------------------------------------------ #
 # simulation parameters:
 # ------------------------------------------------------------------------------------------------------------------ #
@@ -209,6 +225,18 @@ if IS_TRAIN:
                 record_AoI[i, i_step] = env.AoI[i]
             record_reward_global[i_step] = global_reward
 
+            if writer is not None:
+                global_step = i_episode * n_step_per_episode + i_step
+                writer.add_scalar('step/global_reward', float(global_reward), global_step)
+                writer.add_scalar('step/mean_task1_reward', float(np.mean(task_1_r)), global_step)
+                writer.add_scalar('step/mean_task2_reward', float(np.mean(task_2_r)), global_step)
+                writer.add_scalar('step/mean_aoi', float(np.mean(platoon_AoI)), global_step)
+                writer.add_scalar('step/mean_v2i_rate', float(np.mean(C_rate)), global_step)
+                writer.add_scalar('step/mean_v2v_rate', float(np.mean(V_rate)), global_step)
+                writer.add_scalar('step/mean_remaining_demand', float(np.mean(Demand_R)), global_step)
+                writer.add_scalar('step/v2v_success', float(V2V_success), global_step)
+                writer.add_scalar('step/mean_power', float(np.mean(action_temp[:, 2])), global_step)
+
             env.renew_channels_fastfading()
             env.Compute_Interference(action_temp)
             # get new state
@@ -250,6 +278,24 @@ if IS_TRAIN:
         record_reward_global_[i_episode] = np.mean(record_reward_global)
         AoI_total[:, i_episode] = np.mean(record_AoI, axis=1)
 
+        if writer is not None:
+            episode_slot = i_episode % n_episode_test
+            writer.add_scalar('episode/global_reward', float(record_reward_global_[i_episode]), i_episode)
+            writer.add_scalar('episode/mean_task1_reward', float(np.mean(record_reward_t1_[:, i_episode])), i_episode)
+            writer.add_scalar('episode/mean_task2_reward', float(np.mean(record_reward_t2_[:, i_episode])), i_episode)
+            writer.add_scalar('episode/mean_aoi', float(np.mean(AoI_total[:, i_episode])), i_episode)
+            writer.add_scalar('episode/mean_v2i_rate', float(np.mean(V2I_total[:, episode_slot, :])), i_episode)
+            writer.add_scalar('episode/mean_v2v_rate', float(np.mean(V2V_total[:, episode_slot, :])), i_episode)
+            writer.add_scalar('episode/mean_remaining_demand', float(np.mean(Demand_total[:, episode_slot, :])), i_episode)
+            writer.add_scalar('episode/mean_power', float(np.mean(power_total[:, episode_slot, :])), i_episode)
+            for i in range(n_platoon):
+                writer.add_scalar('episode/task1_reward_per_agent/agent_%d' % i,
+                                  float(record_reward_t1_[i, i_episode]), i_episode)
+                writer.add_scalar('episode/task2_reward_per_agent/agent_%d' % i,
+                                  float(record_reward_t2_[i, i_episode]), i_episode)
+                writer.add_scalar('episode/aoi_per_agent/agent_%d' % i,
+                                  float(AoI_total[i, i_episode]), i_episode)
+
         if i_episode % 50 == 0:
             global_agent.save_models()
             for i in range(n_platoon):
@@ -281,6 +327,9 @@ if IS_TRAIN:
     global_agent.save_models()
     for i in range(n_platoon):
         agents[i].save_models()
+
+if writer is not None:
+    writer.close()
 
 end = time.time()
 print("simulation took this much time ... ", end - start)
