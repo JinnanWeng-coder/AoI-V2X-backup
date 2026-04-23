@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.idea/
+
+data/
+
+**/model/**/*.mat
+**/model/**/*.png
