@@ -6,3 +6,6 @@ data/
 
 **/model/**/*.mat
 **/model/**/*.png
+
+**/Classes/tmp/ddpg/*
+!**/Classes/tmp/ddpg/*.txt
