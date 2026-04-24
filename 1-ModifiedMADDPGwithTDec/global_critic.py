@@ -111,21 +111,36 @@ class Global_Critic():
         self.learn_step_counter += 1
 
         if self.learn_step_counter % self.update_actor_iter != 0:
+            for i in range(self.number_agents):
+                self.agents_networks[i].local_learn(
+                    states[:, i * self.number_states:(i + 1) * self.number_states],
+                    actions[:, i * self.number_actions:(i + 1) * self.number_actions],
+                    rewards_t1[:, i], rewards_t2[:, i],
+                    states_[:, i * self.number_states:(i + 1) * self.number_states],
+                    done, update_actor=False)
             return
 
-        actions_ = T.zeros([self.batch_size, self.number_actions * self.number_agents])
+        per_agent_pi = []
         for i in range(self.number_agents):
-            actions_[:, i * self.number_actions:(i + 1) * self.number_actions] = \
-                self.agents_networks[i].actor.forward(
-                    states[:, i * self.number_states:(i + 1) * self.number_states])
-
-        actor_global_loss = -self.global_critic1.forward(states, actions_.to(self.global_critic1.device))
+            a_i = self.agents_networks[i].actor.forward(
+                states[:, i * self.number_states:(i + 1) * self.number_states])
+            per_agent_pi.append(a_i)
+        joint_actions_pi = T.cat(per_agent_pi, dim=1).to(self.global_critic1.device)
 
         for i in range(self.number_agents):
-            actor_global_loss_ = actor_global_loss.clone().detach()
-            self.agents_networks[i].local_learn(actor_global_loss_, states[:, i * self.number_states:(i + 1) * self.number_states],
-                                                actions[:, i * self.number_actions:(i + 1) * self.number_actions], rewards_t1[:, i],
-                                                rewards_t2[:, i], states_[:, i * self.number_states:(i + 1) * self.number_states], done)
+            self.agents_networks[i].actor.optimizer.zero_grad()
+            self.agents_networks[i].actor.train()
+
+        actor_global_loss = -self.global_critic1.forward(states, joint_actions_pi).mean()
+        (actor_global_loss * 2.0).backward()
+
+        for i in range(self.number_agents):
+            self.agents_networks[i].local_learn(
+                states[:, i * self.number_states:(i + 1) * self.number_states],
+                actions[:, i * self.number_actions:(i + 1) * self.number_actions],
+                rewards_t1[:, i], rewards_t2[:, i],
+                states_[:, i * self.number_states:(i + 1) * self.number_states],
+                done, update_actor=True)
 
     def update_global_network_parameters(self, tau=None):
 
