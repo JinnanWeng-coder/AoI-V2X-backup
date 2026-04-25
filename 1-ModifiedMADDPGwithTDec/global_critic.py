@@ -113,19 +113,24 @@ class Global_Critic():
         if self.learn_step_counter % self.update_actor_iter != 0:
             return
 
-        actions_ = T.zeros([self.batch_size, self.number_actions * self.number_agents])
         for i in range(self.number_agents):
-            actions_[:, i * self.number_actions:(i + 1) * self.number_actions] = \
-                self.agents_networks[i].actor.forward(
-                    states[:, i * self.number_states:(i + 1) * self.number_states])
+            per_agent_pi = []
+            for j in range(self.number_agents):
+                a_j = self.agents_networks[j].actor.forward(
+                    states[:, j * self.number_states:(j + 1) * self.number_states])
+                if j != i:
+                    a_j = a_j.detach()
+                per_agent_pi.append(a_j)
+            actions_ = T.cat(per_agent_pi, dim=1).to(self.global_critic1.device)
+            actor_global_loss = -self.global_critic1.forward(states, actions_)
 
-        actor_global_loss = -self.global_critic1.forward(states, actions_.to(self.global_critic1.device))
-
-        for i in range(self.number_agents):
-            actor_global_loss_ = actor_global_loss.clone().detach()
-            self.agents_networks[i].local_learn(actor_global_loss_, states[:, i * self.number_states:(i + 1) * self.number_states],
-                                                actions[:, i * self.number_actions:(i + 1) * self.number_actions], rewards_t1[:, i],
-                                                rewards_t2[:, i], states_[:, i * self.number_states:(i + 1) * self.number_states], done)
+            self.agents_networks[i].local_learn(
+                actor_global_loss,
+                states[:, i * self.number_states:(i + 1) * self.number_states],
+                actions[:, i * self.number_actions:(i + 1) * self.number_actions],
+                rewards_t1[:, i], rewards_t2[:, i],
+                states_[:, i * self.number_states:(i + 1) * self.number_states],
+                done)
 
     def update_global_network_parameters(self, tau=None):
 

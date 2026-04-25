@@ -64,7 +64,7 @@ class Agent():
         self.target_critic_task1.load_checkpoint()
         self.target_critic_task2.load_checkpoint()
 
-    def local_learn(self, global_loss, state, action, reward_t1, reward_t2, state_, terminal):
+    def local_learn(self, global_loss, state, action, reward_t1, reward_t2, state_, terminal, retain_graph=False):
 
         states = state
         states_ = state_
@@ -72,7 +72,6 @@ class Agent():
         rewards_t1 = reward_t1
         rewards_t2 = reward_t2
         done = terminal
-        self.global_loss = global_loss
 
         self.target_actor.eval()
         self.target_critic_task1.eval()
@@ -111,15 +110,14 @@ class Agent():
         critic_loss_task2.backward()
         self.critic_task2.optimizer.step()
         self.critic_task2.eval()
-        # print('loss for global critic: ',self.global_loss.mean())
         # print('loss for critic 1: ',-self.critic_task1.forward(states, self.actor.forward(states)).mean())
         # print('loss for critic 2: ',-self.critic_task2.forward(states, self.actor.forward(states)).mean())
 
         self.actor.optimizer.zero_grad()
         self.actor.train()
         actor_loss = -self.critic_task1.forward(states, self.actor.forward(states))-self.critic_task2.forward(states, self.actor.forward(states))
-        actor_loss = T.mean(actor_loss) + (T.mean(self.global_loss)*2)
-        actor_loss.backward()
+        actor_loss = T.mean(actor_loss) + (T.mean(global_loss)*2)
+        actor_loss.backward(retain_graph=retain_graph)
         self.actor.optimizer.step()
 
         self.update_network_parameters()
