@@ -169,6 +169,7 @@ AoI_total = np.zeros([n_platoon, n_episode], dtype=np.float16)
 record_reward_t1_ = np.zeros([n_platoon, n_episode], dtype=np.float16)
 record_reward_t2_ = np.zeros([n_platoon, n_episode], dtype=np.float16)
 record_reward_global_ = np.zeros([n_episode], dtype=np.float16)
+Jain_total = np.zeros([n_episode], dtype=np.float16)
 # ------------------------------------------------------------------------------------------------------------------ #
 if IS_TRAIN:
     '''
@@ -184,6 +185,7 @@ if IS_TRAIN:
         record_reward_t2 = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
         record_reward_global = np.zeros([n_step_per_episode], dtype=np.float16)
         record_AoI = np.zeros([n_platoon, n_step_per_episode], dtype=np.float16)
+        record_Jain = np.zeros([n_step_per_episode], dtype=np.float16)
 
         env.V2V_demand = env.V2V_demand_size * np.ones(n_platoon, dtype=np.float16)
         env.individual_time_limit = env.time_slow * np.ones(n_platoon, dtype=np.float16)
@@ -224,6 +226,7 @@ if IS_TRAIN:
                 record_reward_t2[i, i_step] = task_2_r[i]
                 record_AoI[i, i_step] = env.AoI[i]
             record_reward_global[i_step] = global_reward
+            record_Jain[i_step] = env.compute_jain_aoi()
 
             if writer is not None:
                 global_step = i_episode * n_step_per_episode + i_step
@@ -231,6 +234,7 @@ if IS_TRAIN:
                 writer.add_scalar('step/mean_task1_reward', float(np.mean(task_1_r)), global_step)
                 writer.add_scalar('step/mean_task2_reward', float(np.mean(task_2_r)), global_step)
                 writer.add_scalar('step/mean_aoi', float(np.mean(platoon_AoI)), global_step)
+                writer.add_scalar('step/jain_index', float(record_Jain[i_step]), global_step)
                 writer.add_scalar('step/mean_v2i_rate', float(np.mean(C_rate)), global_step)
                 writer.add_scalar('step/mean_v2v_rate', float(np.mean(V_rate)), global_step)
                 writer.add_scalar('step/mean_remaining_demand', float(np.mean(Demand_R)), global_step)
@@ -277,6 +281,7 @@ if IS_TRAIN:
         record_reward_t2_[:, i_episode] = np.mean(record_reward_t2, axis=1)
         record_reward_global_[i_episode] = np.mean(record_reward_global)
         AoI_total[:, i_episode] = np.mean(record_AoI, axis=1)
+        Jain_total[i_episode] = np.mean(record_Jain)
 
         if writer is not None:
             episode_slot = i_episode % n_episode_test
@@ -284,6 +289,7 @@ if IS_TRAIN:
             writer.add_scalar('episode/mean_task1_reward', float(np.mean(record_reward_t1_[:, i_episode])), i_episode)
             writer.add_scalar('episode/mean_task2_reward', float(np.mean(record_reward_t2_[:, i_episode])), i_episode)
             writer.add_scalar('episode/mean_aoi', float(np.mean(AoI_total[:, i_episode])), i_episode)
+            writer.add_scalar('episode/jain_index', float(Jain_total[i_episode]), i_episode)
             writer.add_scalar('episode/mean_v2i_rate', float(np.mean(V2I_total[:, episode_slot, :])), i_episode)
             writer.add_scalar('episode/mean_v2v_rate', float(np.mean(V2V_total[:, episode_slot, :])), i_episode)
             writer.add_scalar('episode/mean_remaining_demand', float(np.mean(Demand_total[:, episode_slot, :])), i_episode)
@@ -308,6 +314,7 @@ if IS_TRAIN:
     reward_path_t2 = os.path.join(current_dir, "model/" + label + '/reward_t2.mat')
     reward_path_global = os.path.join(current_dir, "model/" + label + '/reward_global.mat')
     AoI_path = os.path.join(current_dir, "model/" + label + '/AoI.mat')
+    Jain_path = os.path.join(current_dir, "model/" + label + '/Jain.mat')
     AoI_evolution_path = os.path.join(current_dir, "model/" + label + '/AoI_evolution.mat')
     Demand_path = os.path.join(current_dir, "model/" + label + '/demand.mat')
     V2I_path = os.path.join(current_dir, "model/" + label + '/V2I.mat')
@@ -318,6 +325,7 @@ if IS_TRAIN:
     scipy.io.savemat(reward_path_t2, {'reward_t2': record_reward_t2_})
     scipy.io.savemat(reward_path_global, {'reward_global': record_reward_global_})
     scipy.io.savemat(AoI_path, {'AoI': AoI_total})
+    scipy.io.savemat(Jain_path, {'Jain': Jain_total})
     scipy.io.savemat(AoI_evolution_path, {'AoI_evolution': AoI_evolution})
     scipy.io.savemat(Demand_path, {'demand': Demand_total})
     scipy.io.savemat(V2I_path, {'V2I': V2I_total})
