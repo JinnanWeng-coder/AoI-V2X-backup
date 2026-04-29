@@ -109,6 +109,7 @@ class Environ:
         self.vehAntGain = 3
         self.vehNoiseFigure = 9
         self.sig2 = 10 ** (self.sig2_dB / 10)
+        self.LAMBDA_JAIN = 0.3
         self.gap = Gap
         self.v_length = 0
 
@@ -495,6 +496,14 @@ class Environ:
                     self.AoI[i] = (self.time_slow / self.time_fast)
         return self.AoI
 
+    def compute_jain_aoi(self):
+        """Jain's fairness index over per-platoon AoI."""
+        n = int(self.n_Veh / self.size_platoon)
+        x = np.asarray(self.AoI, dtype=np.float64)
+        num = (np.sum(x)) ** 2
+        den = n * np.sum(x ** 2) + 1e-12
+        return num / den
+
     def act_for_training(self, actions):
 
         per_user_reward = np.zeros(int(self.n_Veh / self.size_platoon))
@@ -517,7 +526,7 @@ class Environ:
 
                 per_user_task2_reward[i] = (0.05) * self.Revenue_function(C_rate[i], self.V2I_min) - platoon_AoI[i] / 20
 
-        global_reward = -np.mean((self.Interference_all + 60) / 60)
+        global_reward = -np.mean((self.Interference_all + 60) / 60) + self.LAMBDA_JAIN * self.compute_jain_aoi()
         return per_user_task1_reward, per_user_task2_reward, global_reward, platoon_AoI, C_rate, \
                V_rate, Demand, V2V_success
 

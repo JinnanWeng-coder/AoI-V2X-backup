@@ -72,6 +72,26 @@ def plot_global_reward(result_dir, data):
     save_current_figure(result_dir, "Algo1_Result_2_Global_Reward.png")
 
 
+def plot_jain_index(result_dir, data):
+    if "Jain" not in data:
+        return
+
+    jain = data["Jain"]
+    if jain.ndim > 1 and jain.shape[0] > 1:
+        avg_jain = np.mean(jain, axis=0)
+    else:
+        avg_jain = jain.squeeze()
+
+    plt.figure("Jain Fairness Index", figsize=(8, 5))
+    plt.plot(avg_jain, color=(0.4940, 0.1840, 0.5560), linewidth=1.5)
+    plt.grid(True)
+    plt.title("Jain Fairness Index over AoI")
+    plt.xlabel("Episode")
+    plt.ylabel("Jain Index")
+    plt.ylim(0, 1.05)
+    save_current_figure(result_dir, "Algo1_Result_7_Jain_Index.png")
+
+
 def plot_aoi_cdf(result_dir, data):
     if "AoI" not in data:
         return
@@ -198,6 +218,7 @@ def main():
 
     plot_task_rewards(result_dir, data)
     plot_global_reward(result_dir, data)
+    plot_jain_index(result_dir, data)
     plot_aoi_cdf(result_dir, data)
     plot_aoi_evolution(result_dir, data)
     plot_demand(result_dir, data)
